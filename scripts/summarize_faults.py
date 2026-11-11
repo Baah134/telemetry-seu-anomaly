@@ -100,7 +100,32 @@ def main():
             "the whole test stream. Catastrophic = event F1 < 50% of clean or false alarms/1k > 3x clean + 0.1.\n"),
             encoding="utf-8")
         print(df.to_markdown(index=False))
-        fig, axs = plt.subplots(1, 2, figsize=(DBL_W, 2.3))
+        Dm = load("damage")
+        dmg = {}
+        if Dm:
+            for (kind, k, tr), res in zip(Dm["jobs"], Dm["results"]):
+                r = np.array([x["test_nonanom_mse_ratio"] for x in res], float)
+                r = np.where(np.isfinite(r), r, np.inf)
+                dmg.setdefault((kind, k), []).extend(r.tolist())
+            out["damage"] = {}
+            drows = []
+            for (kind, k), r in sorted(dmg.items()):
+                r = np.array(r)
+                d = {"models": int(r.size), "frac_mse_gt_2x": float(np.mean(r > 2)),
+                     "frac_mse_gt_10x": float(np.mean(r > 10)), "median_ratio": float(np.median(r)),
+                     "event_f1_mean": out["sweep"][f"{kind}|{k}"]["event_f1_mean"]}
+                out["damage"][f"{kind}|{k}"] = d
+                drows.append({"model": KIND_LABEL[kind], "flipped bits": k, "models (100 trials x 10 ch.)": d["models"],
+                              "forecast MSE > 2x clean": f"{d['frac_mse_gt_2x'] * 100:.0f}%",
+                              "forecast MSE > 10x clean": f"{d['frac_mse_gt_10x'] * 100:.0f}%",
+                              "event F1 (same flips)": f"{d['event_f1_mean']:.3f}"})
+            df = pd.DataFrame(drows)
+            df.to_csv("results/tables/fault_damage.csv", index=False)
+            Path("results/tables/fault_damage.md").write_text(df.to_markdown(index=False) + (
+                "\n\nForecast MSE on test points outside labeled anomalies, relative to the clean model, for the "
+                "same flips as the sweep. Shows whether detection F1 tracks model health.\n"), encoding="utf-8")
+            print(df.to_markdown(index=False))
+        fig, axs = plt.subplots(1, 3, figsize=(DBL_W, 2.3))
         for kind in ("int8", "f32"):
             ks = sorted({k for kk, k in cond if kk == kind})
             mu = [out["sweep"][f"{kind}|{k}"]["event_f1_mean"] for k in ks]
@@ -109,14 +134,19 @@ def main():
             axs[0].plot(ks, mu, "o-", color=KIND_COLOR[kind], label=KIND_LABEL[kind], ms=3)
             axs[0].fill_between(ks, lo, hi, color=KIND_COLOR[kind], alpha=0.15, lw=0)
             axs[0].axhline(clean[kind]["event_f1"], color=KIND_COLOR[kind], ls=":", lw=0.8)
-            axs[1].plot(ks, [out["sweep"][f"{kind}|{k}"]["catastrophic_frac"] * 100 for k in ks], "o-",
+            axs[1].plot(ks, [out["sweep"][f"{kind}|{k}"]["nonfinite_trial_frac"] * 100 for k in ks], "o-",
                         color=KIND_COLOR[kind], ms=3)
+            if dmg:
+                axs[2].plot(ks, [out["damage"][f"{kind}|{k}"]["frac_mse_gt_2x"] * 100 for k in ks], "o-",
+                            color=KIND_COLOR[kind], ms=3)
         for ax in axs:
             ax.set_xscale("log")
-            ax.set_xlabel("bit flips in weight memory (per model)")
+            ax.set_xlabel("bit flips in weight memory")
         axs[0].set_ylabel("event F1 (mean, 5-95% band)")
-        axs[1].set_ylabel("catastrophic trials (%)")
+        axs[1].set_ylabel("trials with NaN/inf forecasts (%)")
+        axs[2].set_ylabel("models with forecast MSE > 2x (%)")
         axs[0].legend(fontsize=6)
+        fig.tight_layout()
         save(fig, "figures/fault_sweep")
 
     # ---------------- bit position / layer

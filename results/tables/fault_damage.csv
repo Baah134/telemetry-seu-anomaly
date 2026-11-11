@@ -1,0 +1,15 @@
+model,flipped bits,models (100 trials x 10 ch.),forecast MSE > 2x clean,forecast MSE > 10x clean,event F1 (same flips)
+float32,1,1000,2%,2%,0.547
+float32,2,1000,5%,4%,0.544
+float32,5,1000,12%,11%,0.545
+float32,10,1000,19%,18%,0.551
+float32,20,1000,32%,30%,0.527
+float32,50,1000,65%,63%,0.465
+float32,100,1000,89%,88%,0.457
+INT8 (integer model),1,1000,1%,0%,0.622
+INT8 (integer model),2,1000,1%,1%,0.627
+INT8 (integer model),5,1000,3%,1%,0.643
+INT8 (integer model),10,1000,7%,2%,0.654
+INT8 (integer model),20,1000,14%,6%,0.681
+INT8 (integer model),50,1000,27%,11%,0.700
+INT8 (integer model),100,1000,44%,19%,0.713

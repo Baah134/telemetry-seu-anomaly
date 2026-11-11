@@ -192,6 +192,34 @@ def trial_weights(args):
     return out
 
 
+def trial_damage(args):
+    """Forecast damage for EXACTLY the sweep's flips (same RNG seeds as trial_weights):
+    MSE on validation windows and on test points outside labeled anomalies, relative to
+    the clean model. Tells whether detection F1 tracks model health."""
+    from src.data.loader import W
+    from src.detect.metrics import seqs_to_mask
+    from src.faults.inject import flip_bits
+    chans, kind, k, trial = args
+    rng = np.random.default_rng([trial, k, 0 if kind == "int8" else 1, 0, 0])
+    out = []
+    for c in chans:
+        cx = ctx(c)
+        ws = cx.weights(kind)
+        new, _ = flip_bits(ws, k, rng)
+        nonanom = ~seqs_to_mask(cx.labels, cx.n)[W:]
+        with np.errstate(all="ignore"):
+            pv0, pv = cx.forward(kind, cx.Xv, ws), cx.forward(kind, cx.Xv, new)
+            pt0, pt = cx.clean[kind], cx.forward(kind, cx.Xt, new)
+            mv0 = float(np.mean((pv0 - cx.yv) ** 2))
+            mv = float(np.mean((pv - cx.yv) ** 2))
+            mt0 = float(np.mean((pt0 - cx.yt)[nonanom] ** 2))
+            mt = float(np.mean((pt - cx.yt)[nonanom] ** 2))
+        out.append({"chan": c, "val_mse_ratio": mv / mv0 if mv0 > 0 else np.nan,
+                    "test_nonanom_mse_ratio": mt / mt0 if mt0 > 0 else np.nan,
+                    "nonfinite": int(np.sum(~np.isfinite(pt)))})
+    return out
+
+
 def trial_transient(args):
     from src.faults.inject import flip_int32_bit
     chans, kind, p, trial = args
@@ -306,7 +334,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1))
     ap.add_argument("--trials", type=int, default=N_TRIALS)
-    ap.add_argument("--only", nargs="*", default=["clean", "sweep", "bitpos", "transient", "protect"])
+    ap.add_argument("--only", nargs="*", default=["clean", "sweep", "damage", "bitpos", "transient", "protect"])
     ap.add_argument("--tmr-layer", type=int, default=None)
     a = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
@@ -338,6 +366,13 @@ def main():
                 {"subset": chans, "jobs": [(j[1], j[3], j[4], j[5]) for j in jobs], "results": res}),
                 encoding="utf-8")
             print(f"bitpos {time.time() - t:.0f}s", flush=True)
+        if "damage" in a.only:
+            t = time.time()
+            jobs = [(chans, kind, k, tr) for kind in ("int8", "f32") for k in K_LIST for tr in range(T)]
+            res = run(ex, trial_damage, jobs)
+            (OUT / "damage.json").write_text(json.dumps(
+                {"subset": chans, "jobs": [j[1:] for j in jobs], "results": res}), encoding="utf-8")
+            print(f"damage {time.time() - t:.0f}s", flush=True)
         if "transient" in a.only:
             t = time.time()
             jobs = [(chans, kind, p, tr) for kind in ("int8", "f32") for p in P_LIST for tr in range(T)]
