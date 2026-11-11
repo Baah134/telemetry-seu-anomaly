@@ -1,0 +1,80 @@
+[
+  {
+    "spacecraft": "SMAP",
+    "model": "Tiny MLP INT8 (per channel)",
+    "params": 3393,
+    "weight bytes": 3540,
+    "channels": 54,
+    "weight bytes, all channels": 191160,
+    "peak activation bytes (est.)": 136,
+    "MACs / inference": 3344,
+    "host latency [us] (measured, batch 1)": 972.1,
+    "ESP32 latency [ms] (ESTIMATE)": "0.032-0.088",
+    "ESP32 energy [uJ] (ESTIMATE)": "3.16-19.68"
+  },
+  {
+    "spacecraft": "SMAP",
+    "model": "Tiny MLP float32 (per channel)",
+    "params": 3393,
+    "weight bytes": 13572,
+    "channels": 54,
+    "weight bytes, all channels": 732888,
+    "peak activation bytes (est.)": 544,
+    "MACs / inference": 3344,
+    "host latency [us] (measured, batch 1)": 200.1,
+    "ESP32 latency [ms] (ESTIMATE)": "0.056-0.139",
+    "ESP32 energy [uJ] (ESTIMATE)": "5.52-31.27"
+  },
+  {
+    "spacecraft": "SMAP",
+    "model": "LSTM 2x80 float32 (per channel)",
+    "params": 86161,
+    "weight bytes": 344644,
+    "channels": 54,
+    "weight bytes, all channels": 18610776,
+    "peak activation bytes (est.)": 9600,
+    "MACs / inference": 5427280,
+    "host latency [us] (measured, batch 1)": null,
+    "ESP32 latency [ms] (ESTIMATE)": "90.455-226.137",
+    "ESP32 energy [uJ] (ESTIMATE)": "8955.01-50745.07"
+  },
+  {
+    "spacecraft": "MSL",
+    "model": "Tiny MLP INT8 (per channel)",
+    "params": 4353,
+    "weight bytes": 4500,
+    "channels": 27,
+    "weight bytes, all channels": 121500,
+    "peak activation bytes (est.)": 166,
+    "MACs / inference": 4304,
+    "host latency [us] (measured, batch 1)": 1023.6,
+    "ESP32 latency [ms] (ESTIMATE)": "0.040-0.112",
+    "ESP32 energy [uJ] (ESTIMATE)": "3.96-25.06"
+  },
+  {
+    "spacecraft": "MSL",
+    "model": "Tiny MLP float32 (per channel)",
+    "params": 4353,
+    "weight bytes": 17412,
+    "channels": 27,
+    "weight bytes, all channels": 470124,
+    "peak activation bytes (est.)": 664,
+    "MACs / inference": 4304,
+    "host latency [us] (measured, batch 1)": 204.4,
+    "ESP32 latency [ms] (ESTIMATE)": "0.072-0.179",
+    "ESP32 energy [uJ] (ESTIMATE)": "7.10-40.24"
+  },
+  {
+    "spacecraft": "MSL",
+    "model": "LSTM 2x80 float32 (per channel)",
+    "params": 95761,
+    "weight bytes": 383044,
+    "channels": 27,
+    "weight bytes, all channels": 10342188,
+    "peak activation bytes (est.)": 17280,
+    "MACs / inference": 6041680,
+    "host latency [us] (measured, batch 1)": null,
+    "ESP32 latency [ms] (ESTIMATE)": "100.695-251.737",
+    "ESP32 energy [uJ] (ESTIMATE)": "9968.77-56489.71"
+  }
+]

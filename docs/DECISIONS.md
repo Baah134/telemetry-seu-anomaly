@@ -47,3 +47,38 @@ Status: code for M0–M4 written and smoke-tested on a synthetic dataset; real d
 15. **Protection timing:** in the protection study, k flips occur at a random time t0 in
     the test stream and persist (or until the next scrub check). In the sweep they are
     present for the whole stream (worst case).
+16. **Data obtained from the Internet Archive snapshot of the official S3 zip**, verified
+    byte-identical by SHA-256 against the checksum published by TimeSeAD
+    (b4d66deb...d8a7). Prince could not access Kaggle. No re-processed mirror was used.
+17. **Constant training series (M-6)**: std = 0, so normalization falls back to sd = 1
+    (loader `or 1.0`). Its test series jumps to 258, a trivially visible anomaly.
+18. **P-2 duplicate merged.** labeled_anomalies.csv lists P-2 twice (overlapping labels);
+    merged into one channel with the label union: 81 channels, 104 sequences (68 SMAP).
+19. **Telemanom's own detection pipeline added as the headline detector** (src/detect/
+    telemanom.py, a port of telemanom/errors.py with its config defaults). Reason: the
+    simplified fixed thresholds gave every method ~3 false-alarm events per 1,000 steps
+    (event precision 0.05-0.15), which made the tiny model look worse than persistence;
+    telemanom's windowed NDT + pruning + minimum-error checks are part of the reference
+    method and use no labels. Both views are reported: the ranking flips between them,
+    which is itself a finding about evaluation protocol. Differences from the original:
+    l_s = 64 (our window) instead of 250; exact O(n) re-implementation of the error-buffer
+    expansion (tested equal to the original expansion); int-cast delete indices; guarded
+    zero-peak division. A line-by-line parity test against the original telemanom code
+    was NOT run (the sandbox blocked executing downloaded code); behavioural tests are in
+    tests/test_telemanom.py. Applies to forecasters only (persistence, tiny, LSTM); the
+    z-score and random baselines use the fixed thresholds.
+20. **Fault study switched from the percentile threshold (decision 8) to the telemanom
+    pipeline**, after seeing the clean results: under the fixed threshold the clean
+    detector's event precision is ~0.05, so fault effects on F1 would be uninterpretable.
+    This was decided from clean results only, before any fault result existed.
+21. **Fault conditions trimmed for compute** (telemanom detection ~0.5 s per channel):
+    protections at k = 10 and 100 flips (not 1); scrub@K sweep for int8 at k = 10 only;
+    bit-position study reports label-free forecast deviation only (no detection metric).
+22. **TMR tested on two layers.** Per flipped bit the output layer (L2) is ~20-70x more
+    sensitive than L0/L1 (validation forecast deviation), but L0 holds ~90% of the weight
+    bits, so it receives most random upsets. Both TMR(L2) and TMR(L0) are evaluated.
+23. **ESP32 export verified on the host:** the sketch's C arithmetic compiled with gcc
+    is bit-exact with the NumPy integer reference on 1,000/1,000 windows (channel D-2,
+    results/c_host_check.json). This is not an ESP32 measurement.
+24. **LSTM kept at full telemanom size (2 x 80)**, max 25 epochs, early stopping
+    (patience 4) on the validation split; ~21 s per epoch per channel on this machine.

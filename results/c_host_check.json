@@ -1,0 +1,8 @@
+{
+  "chan": "D-2",
+  "windows": 1000,
+  "bit_exact": 1000,
+  "distinct_outputs": 12,
+  "compiler": "C:\\msys64\\ucrt64\\bin\\gcc.EXE",
+  "note": "host C compiler, not the ESP32"
+}

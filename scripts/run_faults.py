@@ -3,21 +3,22 @@ float32 counterpart). Simulation only.
 
 Channel subset: FAULT_N_PER_SC channels per spacecraft drawn at random (seed 0) from the
 channels with at least one labeled anomaly; fixed before any fault results are seen.
-Model: training seed 0 of each channel. Threshold: the clean model's validation-fitted
-percentile threshold (stored in protected memory, not subject to faults).
+Model: training seed 0 of each channel. Detection: telemanom's label-free pipeline
+(src/detect/telemanom.py), the headline detector. A NaN/inf forecast poisons the running
+EWMA from that step on (as it would on an MCU), so no alarms are raised after it.
 
 Experiments (each condition: N_TRIALS Monte Carlo trials; one trial = an independent
 fault draw in EVERY subset channel's model, metrics aggregated over the subset):
   sweep      k weight-memory bit flips (k in K_LIST), faults present for the whole test
              stream (worst case), int8 vs float32, no protection
   bitpos     1 flip restricted to one (layer, bit position) of the weight matrices;
-             label-free sensitivity = median relative change of validation forecasts
-             (used to pick the TMR layer), plus test event-F1
+             label-free sensitivity only: median/max change of validation forecasts and
+             fraction of non-finite forecasts (used to pick the TMR layer; no test labels)
   transient  per-inference probability p of one bit flip in a random int32 accumulator
              (int8) / float32 pre-activation (float), p in P_LIST
   protect    k in K_PROTECT flips injected at a uniform random time t0 in the test stream
-             (same t0 draw for every protection); protections: none, clamp, scrub@K,
-             tmr(layer), sanity, combined
+             (same t0 draw for every protection); protections: none, clamp, sanity,
+             tmr(layer), scrub (K=100), combined; plus scrub@K for K in SCRUB_K (int8, k=10)
 Writes results/faults/<experiment>.json.
 """
 import argparse
@@ -34,7 +35,7 @@ FAULT_N_PER_SC = 5
 N_TRIALS = 100
 K_LIST = [1, 2, 5, 10, 20, 50, 100]
 P_LIST = [1e-4, 1e-3, 1e-2, 1e-1]
-K_PROTECT = [1, 10, 100]
+K_PROTECT = [10, 100]
 SCRUB_K = [1, 10, 100, 1000]
 CATA_F1_FRAC = 0.5      # catastrophic: event F1 < 50% of clean ...
 CATA_FA_MULT = 3.0      # ... or false-alarm events per 1k > 3x clean (+0.1)
@@ -59,7 +60,6 @@ class Ctx:
     def __init__(self, chan_id):
         import torch
         from src.data.loader import W, load_channel, load_labels, windows
-        from src.detect.threshold import percentile_threshold, smoothed_error
         from src.models.nets import TinyMLP
         from src.quant.int8 import activation_ranges, float_layers, quantize
         row = next(r for r in load_labels().to_dict("records") if r["chan_id"] == chan_id)
@@ -71,6 +71,7 @@ class Ctx:
         self.yf = yall[tgt < n_fit]
         self.Xt, self.yt = windows(ch.test, ch)
         self.n, self.W, self.labels = len(ch.test), W, ch.label_seqs
+        self.sd, self.mu, self.chan_id = ch.sd, ch.mu, chan_id
         ck = torch.load(Path("results/models") / f"{chan_id}_s0.pt")
         m = TinyMLP(ck["in_dim"])
         m.load_state_dict(ck["tiny"])
@@ -81,12 +82,8 @@ class Ctx:
         # int8 clamp: profiled max code per layer from calibration data
         self.iclamp = self._int_ranges()
         self.lo, self.hi = float(self.yf.min()), float(self.yf.max())
-        self.smoothed_error = smoothed_error
-        self.eps = {}
         self.clean = {}
         for kind in ("int8", "f32"):
-            pv = self.forward(kind, self.Xv, self.weights(kind))
-            self.eps[kind] = percentile_threshold(smoothed_error(self.yv, pv))
             self.clean[kind] = self.forward(kind, self.Xt, self.weights(kind))
 
     def _int_ranges(self):
@@ -128,13 +125,25 @@ class Ctx:
         return a[:, 0].astype(np.float64)
 
     def counts(self, kind, pred):
+        """Telemanom detection on a forecast stream -> (all_counts, n_nonfinite)."""
         from src.detect.metrics import all_counts
-        s = np.zeros(self.n)
+        from src.detect.telemanom import detect
+        pred = np.asarray(pred, np.float64)
         with np.errstate(all="ignore"):
-            s[self.W:] = self.smoothed_error(self.yt, pred)
+            e = np.abs(self.yt - pred) * self.sd
+        bad = ~np.isfinite(e)
+        nonfinite = int(bad.sum())
+        if nonfinite:
+            e = e.copy()
+            e[np.argmax(bad):] = 0.0       # EWMA becomes NaN; NaN > eps is false -> silent
+        seqs = detect(e, self.yt * self.sd + self.mu, l_s=self.W, chan_id=self.chan_id)
+        if nonfinite:
+            first = int(np.argmax(bad))
+            seqs = [(a, min(b, first - 1)) for a, b in seqs if a < first]
         alarm = np.zeros(self.n, bool)
-        alarm[self.W:] = s[self.W:] > self.eps[kind]      # NaN scores never alarm (as on an MCU)
-        return all_counts(alarm, self.labels), int(np.sum(~np.isfinite(pred)))
+        for a, b in seqs:
+            alarm[a + self.W:b + self.W + 1] = True
+        return all_counts(alarm, self.labels), nonfinite
 
 
 _CTX = {}
@@ -165,9 +174,12 @@ def trial_weights(args):
             sub, _ = flip_bits([ws[2 * layer]], k, rng, bit_positions=[bit])
             new = list(ws)
             new[2 * layer] = sub[0]
-        pt = cx.forward(kind, cx.Xt, new)
-        cnt, nonfinite = cx.counts(kind, pt)
-        rec = {"chan": c, "counts": cnt, "nonfinite": nonfinite}
+        if layer is None:
+            pt = cx.forward(kind, cx.Xt, new)
+            cnt, nonfinite = cx.counts(kind, pt)
+            rec = {"chan": c, "counts": cnt, "nonfinite": nonfinite}
+        else:
+            rec = {"chan": c}
         if layer is not None:      # label-free sensitivity on validation windows
             pv0 = cx.forward(kind, cx.Xv, ws)
             pv = cx.forward(kind, cx.Xv, new)
@@ -175,6 +187,7 @@ def trial_weights(args):
                 d = np.abs(pv - pv0)
             rec["val_dev"] = float(np.median(np.where(np.isfinite(d), d, 1e6)))
             rec["val_dev_max"] = float(np.max(np.where(np.isfinite(d), d, 1e6)))
+            rec["val_nonfinite_frac"] = float(np.mean(~np.isfinite(pv)))
         out.append(rec)
     return out
 
@@ -216,7 +229,8 @@ def trial_transient(args):
     return out
 
 
-PROTECTIONS = ["none", "clamp", "sanity", "tmr", "scrub", "combined"]
+PROTECTIONS = ["none", "clamp", "sanity", "tmr_L2", "tmr_L0", "scrub", "combined"]
+TMR_LAYERS = (2, 0)     # output layer: most sensitive per bit; input layer: most bits
 
 
 def trial_protect(args):
@@ -225,22 +239,24 @@ def trial_protect(args):
     from src.faults.protect import sanity_filter, tmr_vote
     chans, kind, k, trial, tmr_layer, scrub_k = args
     rng = np.random.default_rng([trial, k, 11 if kind == "int8" else 12])
-    res = {p: [] for p in PROTECTIONS + [f"scrub@{K}" for K in SCRUB_K]}
+    res = {p: [] for p in PROTECTIONS}
     for c in chans:
         cx = ctx(c)
         ws = cx.weights(kind)
         N = len(cx.Xt)
         t0 = int(rng.integers(0, N))
-        # memory with TMR on one layer's weight matrix: 3 copies, flips uniform over all bits
-        tw = 2 * tmr_layer
-        mem = list(ws) + [ws[tw].copy(), ws[tw].copy()]
-        new, _ = flip_bits(mem, k, rng)
-        plain = new[:6]
+        # memory with TMR on one layer's weight matrix: 3 copies, flips uniform over ALL bits
+        voted_by = {}
+        for tl in TMR_LAYERS:
+            tw = 2 * tl
+            mem = list(ws) + [ws[tw].copy(), ws[tw].copy()]
+            new, _ = flip_bits(mem, k, rng)
+            v = list(new[:6])
+            v[tw] = tmr_vote(new[tw], new[6], new[7])
+            voted_by[tl] = v
         # without TMR the extra copies do not exist, so the unprotected memory gets its own
         # k-flip draw (same k, same t0); TMR trials are therefore not bit-for-bit paired.
         plain_noTMR, _ = flip_bits(ws, k, rng)
-        voted = list(plain)
-        voted[tw] = tmr_vote(new[tw], new[6], new[7])
         clean = cx.clean[kind]
         last = cx.Xt[:, cx.W - 1].astype(np.float64)
 
@@ -252,22 +268,25 @@ def trial_protect(args):
 
         f_none = cx.forward(kind, cx.Xt, plain_noTMR)
         f_clamp = cx.forward(kind, cx.Xt, plain_noTMR, clamp=True)
-        f_tmr = cx.forward(kind, cx.Xt, voted)
-        f_comb = cx.forward(kind, cx.Xt, voted, clamp=True)
+        f_tmr = {tl: cx.forward(kind, cx.Xt, voted_by[tl]) for tl in TMR_LAYERS}
+        f_comb = cx.forward(kind, cx.Xt, voted_by[2], clamp=True)
         preds = {
             "none": stream(f_none),
             "clamp": stream(f_clamp),
             "sanity": sanity_filter(stream(f_none), last, cx.lo, cx.hi)[0],
-            "tmr": stream(f_tmr),
+            "tmr_L2": stream(f_tmr[2]),
+            "tmr_L0": stream(f_tmr[0]),
             # scrub: detected at the next multiple of K after t0, then golden weights reloaded
             "scrub": stream(f_none, until=(t0 // scrub_k + 1) * scrub_k),
+            # combined = clamp + TMR(output layer) + scrub@100 + sanity
             "combined": sanity_filter(stream(f_comb, until=(t0 // scrub_k + 1) * scrub_k), last, cx.lo, cx.hi)[0],
         }
-        for K in SCRUB_K:
-            preds[f"scrub@{K}"] = stream(f_none, until=(t0 // K + 1) * K)
+        if kind == "int8" and k == 10:
+            for K in SCRUB_K:
+                preds[f"scrub@{K}"] = stream(f_none, until=(t0 // K + 1) * K)
         for name, p in preds.items():
             cnt, nonfinite = cx.counts(kind, p)
-            res[name].append({"chan": c, "counts": cnt, "nonfinite": nonfinite,
+            res.setdefault(name, []).append({"chan": c, "counts": cnt, "nonfinite": nonfinite,
                               "corrupt_inferences": int(min(N, (t0 // scrub_k + 1) * scrub_k) - t0)
                               if "scrub" in name or name == "combined" else int(N - t0)})
     return res
@@ -327,14 +346,12 @@ def main():
                 {"subset": chans, "jobs": [j[1:] for j in jobs], "results": res}), encoding="utf-8")
             print(f"transient {time.time() - t:.0f}s", flush=True)
         if "protect" in a.only:
-            if a.tmr_layer is None:
-                raise SystemExit("--tmr-layer required (pick from bitpos sensitivity, label-free)")
             t = time.time()
             jobs = [(chans, kind, k, tr, a.tmr_layer, 100) for kind in ("int8", "f32") for k in K_PROTECT
                     for tr in range(T)]
             res = run(ex, trial_protect, jobs)
             (OUT / "protect.json").write_text(json.dumps(
-                {"subset": chans, "tmr_layer": a.tmr_layer, "scrub_k_main": 100, "scrub_k": SCRUB_K,
+                {"subset": chans, "tmr_layers": list(TMR_LAYERS), "scrub_k_main": 100, "scrub_k": SCRUB_K,
                  "jobs": [j[1:4] for j in jobs], "results": res}), encoding="utf-8")
             print(f"protect {time.time() - t:.0f}s", flush=True)
 

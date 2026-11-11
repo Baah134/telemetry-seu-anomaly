@@ -1,0 +1,45 @@
+{
+  "MSL": {
+    "channels": 27,
+    "anomaly_sequences": 36,
+    "test_points": 73729,
+    "train_points": 58317,
+    "anomaly_point_frac": 0.1053316876669967,
+    "n_cmd": [
+      54
+    ],
+    "median_anomaly_len": 131.0,
+    "max_channel_anomaly_frac": 0.5010979358805446,
+    "point_anomalies": 19,
+    "contextual_anomalies": 17
+  },
+  "SMAP": {
+    "channels": 54,
+    "anomaly_sequences": 68,
+    "test_points": 435826,
+    "train_points": 138004,
+    "anomaly_point_frac": 0.1284273999256584,
+    "n_cmd": [
+      24
+    ],
+    "median_anomaly_len": 218.16666666666669,
+    "max_channel_anomaly_frac": 0.4907504363001745,
+    "point_anomalies": 43,
+    "contextual_anomalies": 26
+  },
+  "ALL": {
+    "channels": 81,
+    "anomaly_sequences": 104,
+    "test_points": 509555,
+    "train_points": 196321,
+    "anomaly_point_frac": 0.1250856139180265,
+    "n_cmd": [
+      24,
+      54
+    ],
+    "median_anomaly_len": 156.0,
+    "max_channel_anomaly_frac": 0.5010979358805446,
+    "point_anomalies": 62,
+    "contextual_anomalies": 43
+  }
+}
