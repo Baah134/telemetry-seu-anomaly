@@ -107,3 +107,16 @@ Status: code for M0–M4 written and smoke-tested on a synthetic dataset; real d
     the next checksum passes; on a mismatch, all forecasts since the last good check are
     discarded and the weights reloaded. Cost: alarm latency of up to K inferences. Both
     the naive result (this entry) and the verify-then-commit result are reported.
+29. **T-10 unused.** The official zip contains 82 channel files; T-10 has no row in
+    labeled_anomalies.csv (no ground truth), so the evaluation uses the 81 labeled
+    channels. Found during the fresh-clone check.
+30. **Fresh-clone check (2026-11-11):** found that `.gitignore`'s `data/` rule also
+    excluded `src/data/` (the loader); fixed to `/data/`. After the fix a fresh clone
+    passes all tests, `get_data` verifies the zip, and the summary scripts regenerate
+    every table and RESULTS.md identically (line endings aside).
+
+## Session 1 end-of-day — 2026-11-11
+Done: M0–M5 in simulation (data, metrics, baselines, tiny + LSTM, INT8 + integer
+reference + C export, fault study with protections, docs). Found: see RESULTS.md.
+Open: ESP32 measurement (Prince); telemanom side-by-side parity run (needs permission
+to execute the original code); optional shared-model variant and QAT not done.

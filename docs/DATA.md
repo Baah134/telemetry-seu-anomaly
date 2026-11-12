@@ -30,6 +30,8 @@ with overlapping labels [5350, 6575] and [5300, 6420]. The loader merges duplica
 into one channel with the union of their labels ([5300, 6575]). Counting P-2 twice would
 double-count its test points and its anomaly. After merging: 81 channels, 104 sequences.
 
+**Unlabeled file.** The zip holds 82 channel files; T-10 has no row in `labeled_anomalies.csv`, so it is not used (it has no ground truth).
+
 ## Summary (`python -m scripts.inspect_data` → `results/data_summary.json`)
 
 | | SMAP | MSL | All |

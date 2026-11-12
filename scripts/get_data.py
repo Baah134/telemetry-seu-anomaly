@@ -43,7 +43,8 @@ def main():
         for d in ("train", "test"):
             shutil.move(str(tmp / "data" / d), str(RAW / d))
         shutil.rmtree(tmp)
-    print("data ready:", len(list((RAW / "train").glob("*.npy"))), "channels")
+    print("data ready:", len(list((RAW / "train").glob("*.npy"))), "channel files "
+          "(81 labeled channels are used; T-10 has no labels, see docs/DATA.md)")
 
 
 if __name__ == "__main__":
