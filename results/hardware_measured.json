@@ -1,0 +1,36 @@
+{
+  "date": "2026-11-11",
+  "who": "Prince's board, connected by Prince; compiled, flashed and read over serial by Claude Code at his request",
+  "board": "ESP32 DevKit (CP210x USB-UART), chip ESP32-D0WD-V3 rev 3.1, 40 MHz crystal, 4 MB flash",
+  "cpu_mhz": 240,
+  "toolchain": "arduino-cli 1.0.4, esp32 Arduino core 3.0.6, compiler flags -Os (Arduino default), FQBN esp32:esp32:esp32:CPUFreq=240",
+  "model": "export/esp32_infer: tiny MLP INT8, channel D-2, training seed 0, 3,540 weight bytes, 3,344 MACs/inference (IN_DIM 88)",
+  "method": "micros() around back-to-back infer() calls on one stored window; mean per call; repeated per window",
+  "run_8_windows_1000_reps": {
+    "windows": 8,
+    "bit_exact": 8,
+    "us_per_inference_median": 203.27,
+    "us_min": 202.94,
+    "us_max": 203.277
+  },
+  "run_500_windows_20_reps": {
+    "windows": 500,
+    "bit_exact": 500,
+    "us_per_inference_median": 203.55,
+    "us_min": 203.05,
+    "us_max": 211.5
+  },
+  "cycles_per_mac_measured": 14.59,
+  "energy_estimate_uJ": {
+    "value_range": [
+      20.1,
+      45.6
+    ],
+    "basis": "MEASURED latency x 3.3 V x 30-68 mA (ESP32 datasheet, modem-sleep 240 MHz, radio off); current NOT measured"
+  },
+  "raw_logs": [
+    "results/hardware/serial_8windows_1000reps.txt",
+    "results/hardware/serial_500windows_20reps.txt"
+  ],
+  "not_measured": "power/current, other channels' models (MSL models have IN_DIM 118, ~29% more MACs), dual-core use, -O2 builds"
+}

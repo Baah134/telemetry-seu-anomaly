@@ -45,9 +45,9 @@ static void dense(const int8_t* x, int in, const int8_t* W, const int32_t* B, co
 
 static int8_t infer(const int8_t* x) {
   static int8_t h1[H1], h2[H2], o[1];
-  dense(x, IN_DIM, W1, B1, M1, S1, H1, h1, true);
-  dense(h1, H1, W2, B2, M2, S2, H2, h2, true);
-  dense(h2, H2, W3, B3, M3, S3, 1, o, false);
+  dense(x, IN_DIM, L1_W, L1_B, L1_M, L1_S, H1, h1, true);
+  dense(h1, H1, L2_W, L2_B, L2_M, L2_S, H2, h2, true);
+  dense(h2, H2, L3_W, L3_B, L3_M, L3_S, 1, o, false);
   return o[0];
 }
 

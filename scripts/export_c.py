@@ -50,10 +50,10 @@ def build(chan=None, n_windows=N_TEST_WINDOWS):
          f"#define N_TEST {n_windows}\n",
          f"static const float INPUT_SCALE = {qm.s_in:.9e}f;\nstatic const float OUTPUT_SCALE = {qm.s_out:.9e}f;\n"]
     for l in range(3):
-        h.append(carr(f"W{l + 1}", qm.W[l], "int8_t"))
-        h.append(carr(f"B{l + 1}", qm.b[l], "int32_t"))
-        h.append(carr(f"M{l + 1}", qm.M0[l], "int32_t"))
-        h.append(carr(f"S{l + 1}", qm.sh[l], "int8_t"))
+        h.append(carr(f"L{l + 1}_W", qm.W[l], "int8_t"))
+        h.append(carr(f"L{l + 1}_B", qm.b[l], "int32_t"))
+        h.append(carr(f"L{l + 1}_M", qm.M0[l], "int32_t"))
+        h.append(carr(f"L{l + 1}_S", qm.sh[l], "int8_t"))
     h.append(carr("TEST_X", xq, "int8_t"))
     h.append(carr("TEST_Y_EXPECTED", yq, "int8_t"))
     return chan, qm, idx, yq, "".join(h)

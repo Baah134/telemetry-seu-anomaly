@@ -1,8 +1,19 @@
-# Hardware test on ESP32 (Prince runs this; nothing here has been measured yet)
+# Hardware test on ESP32
+
+**Status (2026-11-11):** run on Prince's ESP32 DevKit (ESP32-D0WD-V3 rev 3.1, 240 MHz):
+bit-exact on 8/8 and 500/500 windows, 203.3 µs per inference. Energy NOT measured
+(still estimated). Record: `results/hardware_measured.json`; raw serial logs:
+`results/hardware/`.
+
+Command-line version of the steps below (what was used; arduino-cli ships inside Arduino IDE 2):
+```bash
+arduino-cli compile --fqbn esp32:esp32:esp32:CPUFreq=240 --output-dir build export/esp32_infer
+arduino-cli upload -p COM13 --fqbn esp32:esp32:esp32:CPUFreq=240 --input-dir build export/esp32_infer
+```
+Then read 115200 baud serial after a reset (Arduino Serial Monitor, or pyserial).
 
 Goal: check that the INT8 model runs **bit-exactly** on the ESP32 like the NumPy integer
-reference, and measure real latency (and energy, if you have a power meter). Until you do
-this, every ESP32 number in the repo is an **estimate** (results/tables/resources.md).
+reference, and measure real latency (and energy, if you have a power meter).
 
 ## 1. Generate the model header
 

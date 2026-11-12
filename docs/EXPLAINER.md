@@ -140,7 +140,8 @@ the model, produces much of the headline number.
 - Anything about real radiation: flips are simulated, uniformly over stored bits; real
   upset rates, multi-bit upsets, and upsets in code, control logic or the MCU's
   registers are not modelled.
-- ESP32 behaviour: latency/energy are estimates; the C code was only checked on a PC.
+- ESP32 energy: estimated (measured latency x datasheet current). Latency and
+  bit-exactness WERE measured on your ESP32 DevKit (203 µs, 500/500 bit-exact).
 - That tiny models are as good in general: one benchmark, one window length, 3 seeds.
 - That the telemanom port is line-for-line identical (no side-by-side run, see
   DECISIONS #19).
@@ -166,5 +167,7 @@ the model, produces much of the headline number.
 7. *"Would ECC memory make this moot?"* Largely for single-bit upsets in protected RAM;
    many small-satellite MCUs lack ECC on all memories, and multi-bit upsets exist. The
    software protections studied here are what you can add without new hardware.
-8. *"Did you test on hardware?"* No. The ESP32 sketch and instructions are in export/;
-   any hardware number will be labeled as measured by Prince, with board and method.
+8. *"Did you test on hardware?"* Partly. The INT8 model ran on an ESP32 DevKit
+   (ESP32-D0WD-V3, 240 MHz): outputs bit-exact with the reference on 500/500 windows,
+   203 µs per inference, about 2-6x slower than the analytic estimate. Energy and the
+   fault study were not done on hardware.

@@ -1,7 +1,8 @@
 spacecraft,model,params,weight bytes,channels,"weight bytes, all channels",peak activation bytes (est.),MACs / inference,"host latency [us] (measured, batch 1)",ESP32 latency [ms] (ESTIMATE),ESP32 energy [uJ] (ESTIMATE)
-SMAP,Tiny MLP INT8 (per channel),3393,3540,54,191160,136,3344,972.1,0.032-0.088,3.16-19.68
-SMAP,Tiny MLP float32 (per channel),3393,13572,54,732888,544,3344,200.1,0.056-0.139,5.52-31.27
+SMAP,Tiny MLP INT8 (per channel),3393,3540,54,191160,136,3344,183.5,0.032-0.088,3.16-19.68
+SMAP,Tiny MLP float32 (per channel),3393,13572,54,732888,544,3344,36.3,0.056-0.139,5.52-31.27
 SMAP,LSTM 2x80 float32 (per channel),86161,344644,54,18610776,9600,5427280,,90.455-226.137,8955.01-50745.07
-MSL,Tiny MLP INT8 (per channel),4353,4500,27,121500,166,4304,1023.6,0.040-0.112,3.96-25.06
-MSL,Tiny MLP float32 (per channel),4353,17412,27,470124,664,4304,204.4,0.072-0.179,7.10-40.24
+MSL,Tiny MLP INT8 (per channel),4353,4500,27,121500,166,4304,189.1,0.040-0.112,3.96-25.06
+MSL,Tiny MLP float32 (per channel),4353,17412,27,470124,664,4304,37.4,0.072-0.179,7.10-40.24
 MSL,LSTM 2x80 float32 (per channel),95761,383044,27,10342188,17280,6041680,,100.695-251.737,9968.77-56489.71
+SMAP (D-2),"Tiny MLP INT8, MEASURED on ESP32 (2026-11-11)",3393,3540,1,3540,136,3344,,MEASURED 0.203,20.1-45.6 (measured latency x datasheet current)

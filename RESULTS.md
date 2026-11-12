@@ -100,18 +100,21 @@ Fraction of labeled anomaly sequences with at least one alarm (event recall), me
 
 ## 2. Resources
 
-| spacecraft   | model                           |   params |   weight bytes |   channels |   weight bytes, all channels |   peak activation bytes (est.) |   MACs / inference |   host latency [us] (measured, batch 1) | ESP32 latency [ms] (ESTIMATE)   | ESP32 energy [uJ] (ESTIMATE)   |
-|:-------------|:--------------------------------|---------:|---------------:|-----------:|-----------------------------:|-------------------------------:|-------------------:|----------------------------------------:|:--------------------------------|:-------------------------------|
-| SMAP         | Tiny MLP INT8 (per channel)     |     3393 |           3540 |         54 |                       191160 |                            136 |               3344 |                                   972.1 | 0.032-0.088                     | 3.16-19.68                     |
-| SMAP         | Tiny MLP float32 (per channel)  |     3393 |          13572 |         54 |                       732888 |                            544 |               3344 |                                   200.1 | 0.056-0.139                     | 5.52-31.27                     |
-| SMAP         | LSTM 2x80 float32 (per channel) |    86161 |         344644 |         54 |                     18610776 |                           9600 |            5427280 |                                   nan   | 90.455-226.137                  | 8955.01-50745.07               |
-| MSL          | Tiny MLP INT8 (per channel)     |     4353 |           4500 |         27 |                       121500 |                            166 |               4304 |                                  1023.6 | 0.040-0.112                     | 3.96-25.06                     |
-| MSL          | Tiny MLP float32 (per channel)  |     4353 |          17412 |         27 |                       470124 |                            664 |               4304 |                                   204.4 | 0.072-0.179                     | 7.10-40.24                     |
-| MSL          | LSTM 2x80 float32 (per channel) |    95761 |         383044 |         27 |                     10342188 |                          17280 |            6041680 |                                   nan   | 100.695-251.737                 | 9968.77-56489.71               |
+| spacecraft   | model                                         |   params |   weight bytes |   channels |   weight bytes, all channels |   peak activation bytes (est.) |   MACs / inference |   host latency [us] (measured, batch 1) | ESP32 latency [ms] (ESTIMATE)   | ESP32 energy [uJ] (ESTIMATE)                     |
+|:-------------|:----------------------------------------------|---------:|---------------:|-----------:|-----------------------------:|-------------------------------:|-------------------:|----------------------------------------:|:--------------------------------|:-------------------------------------------------|
+| SMAP         | Tiny MLP INT8 (per channel)                   |     3393 |           3540 |         54 |                       191160 |                            136 |               3344 |                                   183.5 | 0.032-0.088                     | 3.16-19.68                                       |
+| SMAP         | Tiny MLP float32 (per channel)                |     3393 |          13572 |         54 |                       732888 |                            544 |               3344 |                                    36.3 | 0.056-0.139                     | 5.52-31.27                                       |
+| SMAP         | LSTM 2x80 float32 (per channel)               |    86161 |         344644 |         54 |                     18610776 |                           9600 |            5427280 |                                   nan   | 90.455-226.137                  | 8955.01-50745.07                                 |
+| MSL          | Tiny MLP INT8 (per channel)                   |     4353 |           4500 |         27 |                       121500 |                            166 |               4304 |                                   189.1 | 0.040-0.112                     | 3.96-25.06                                       |
+| MSL          | Tiny MLP float32 (per channel)                |     4353 |          17412 |         27 |                       470124 |                            664 |               4304 |                                    37.4 | 0.072-0.179                     | 7.10-40.24                                       |
+| MSL          | LSTM 2x80 float32 (per channel)               |    95761 |         383044 |         27 |                     10342188 |                          17280 |            6041680 |                                   nan   | 100.695-251.737                 | 9968.77-56489.71                                 |
+| SMAP (D-2)   | Tiny MLP INT8, MEASURED on ESP32 (2026-11-11) |     3393 |           3540 |          1 |                         3540 |                            136 |               3344 |                                   nan   | MEASURED 0.203                  | 20.1-45.6 (measured latency x datasheet current) |
 
-ESP32 numbers are ESTIMATES, not measurements: 240 MHz; int8 2-6 cycles/MAC and float32 4-10 cycles/MAC (assumed scalar C loops, no SIMD); +20 cycles per requantized output; 30-68 mA at 3.3 V (ESP32 datasheet, modem-sleep, 240 MHz, radio off). Peak activation memory counts input + hidden buffers only. Host latency: this PC, NumPy integer reference vs PyTorch, batch 1, median of 2000 (Python overhead dominates; reference only).
+ESP32 numbers are ESTIMATES, not measurements: 240 MHz; int8 2-6 cycles/MAC and float32 4-10 cycles/MAC (assumed scalar C loops, no SIMD); +20 cycles per requantized output; 30-68 mA at 3.3 V (ESP32 datasheet, modem-sleep, 240 MHz, radio off). Peak activation memory counts input + hidden buffers only. Host latency: this PC, NumPy integer reference vs PyTorch, batch 1, median of 2000 (Python overhead dominates; reference only). The MEASURED row comes from results/hardware_measured.json (Prince's ESP32-D0WD-V3 DevKit, 240 MHz, -Os): it is 2-6x slower than the INT8 estimate (~14.6 cycles per MAC measured vs 2-6 assumed), so the estimated rows are optimistic.
 
-Host check of the ESP32 C code: bit-exact with the NumPy integer reference on 1000/1000 windows (channel D-2, host gcc; not an ESP32 measurement).
+Host check of the ESP32 C code: bit-exact with the NumPy integer reference on 1000/1000 windows (channel D-2, host gcc).
+
+**Measured on hardware (2026-11-11):** ESP32 DevKit (CP210x USB-UART), chip ESP32-D0WD-V3 rev 3.1, 40 MHz crystal, 4 MB flash, 240 MHz. INT8 outputs bit-exact with the NumPy reference on 500/500 windows (and 8/8 in the 1,000-repetition run). Latency 203.3 µs per inference (~14.6 cycles per MAC), slower than the 32–88 µs estimate. Energy 20–46 µJ is still an ESTIMATE (measured latency x datasheet current; current not measured). Who/how: Prince's board, connected by Prince; compiled, flashed and read over serial by Claude Code at his request. Raw logs in results/hardware/.
 
 ## 3. Simulated SEU fault injection
 
@@ -215,6 +218,6 @@ Checksum interval (INT8, 10 flips): K=1: F1 0.615, 1 corrupted inferences, 4020 
 ## 4. What this does NOT show
 
 - Radiation behaviour: faults are simulated bit flips in software, uniform over stored bits.
-- ESP32 performance: latency/energy are estimates; the C code was only checked on a host compiler.
+- ESP32 energy: not measured (estimate only); latency was measured for one SMAP-channel model only.
 - Generality: one benchmark with known flaws; the fault subset has 13 labeled events.
 - Telemanom parity: the port follows telemanom/errors.py but was not run side by side with the original (docs/DECISIONS.md #19).

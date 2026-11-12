@@ -40,7 +40,7 @@ Without `make`: `python reproduce.py data test figures`. The host C check
 
 ## Limitations
 
-Simulation only: no radiation or beam testing, no on-device fault injection, ESP32
-latency/energy are estimates until measured. One benchmark (SMAP/MSL), which has known
+Simulation only: no radiation or beam testing, no on-device fault injection. On-device:
+INT8 inference measured on one ESP32 DevKit (bit-exact, 203 µs); energy is estimated. One benchmark (SMAP/MSL), which has known
 flaws (dense, often trivially visible anomalies). The fault study uses 10 channels with
 13 labeled anomalies, so its F1 values move in steps of about 0.08.

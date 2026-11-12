@@ -14,7 +14,8 @@ Repo (private): https://github.com/Baah134/telemetry-seu-anomaly
 - A port of telemanom's detection pipeline (windowed dynamic threshold + pruning).
 - Tiny MLP forecaster (3.4k–4.4k parameters), INT8 post-training quantization, an
   integer-only inference reference (TFLite-Micro-style fixed-point requantization), and
-  a C version for ESP32 that is bit-exact with it on 1,000/1,000 windows (host gcc).
+  a C version for ESP32: bit-exact with it on 1,000/1,000 windows (host gcc) and on
+  500/500 windows on your ESP32 DevKit (ESP32-D0WD-V3, 240 MHz), 203 µs per inference.
 - LSTM 2x80 reference; persistence, rolling z-score and random baselines; 3 seeds.
 - Bit-flip fault injection (persistent weight flips, transient accumulator flips,
   bit-position/layer sensitivity) with four protections; 100 Monte Carlo trials per
@@ -55,12 +56,13 @@ there; point adjustment and thresholding here) can move the headline number more
 the model does.
 
 **Words to avoid.** "radiation-tested", "radiation-hardened", "flight-qualified",
-"runs on the ESP32 at X ms" (until you measure it), "INT8 is more robust in general".
+"INT8 is more robust in general". For the ESP32 say "measured on my ESP32 DevKit:
+203 µs per inference, bit-exact with the reference; energy estimated at 20–46 µJ".
 Say "simulated bit flips", "estimated", "on this benchmark".
 
 **What hardware validation would require.**
-1. Flash `export/esp32_infer` (export/HARDWARE_TEST.md): confirm bit-exact outputs and
-   measure latency/energy on your ESP32.
+1. Done on 2026-11-11 for latency and bit-exactness (results/hardware_measured.json).
+   Still open: measure current/energy with a USB power meter or shunt.
 2. On-device fault injection: flip bits in the ESP32's RAM while the model runs.
 3. Radiation: proton or heavy-ion beam time at a test facility, with upset logging.
 

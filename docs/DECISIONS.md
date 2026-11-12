@@ -120,3 +120,11 @@ Done: M0–M5 in simulation (data, metrics, baselines, tiny + LSTM, INT8 + integ
 reference + C export, fault study with protections, docs). Found: see RESULTS.md.
 Open: ESP32 measurement (Prince); telemanom side-by-side parity run (needs permission
 to execute the original code); optional shared-model variant and QAT not done.
+31. **On-device test (2026-11-11).** Prince connected his ESP32 DevKit (ESP32-D0WD-V3
+    rev 3.1, CP210x, COM13); Claude Code compiled with arduino-cli 1.0.4 / esp32 core
+    3.0.6 (-Os, 240 MHz), flashed and read the serial output. The first compile failed:
+    Arduino predefines `B1` (binary literal), which clashed with the bias array name;
+    arrays renamed L1_W/L1_B/... (host check re-run, still 1,000/1,000). Results:
+    bit-exact on 8/8 and 500/500 windows; 203.3 µs per inference (14.6 cycles/MAC),
+    2-6x slower than the analytic estimate, which is now flagged as optimistic. Energy
+    stays an estimate (measured latency x datasheet current), at Prince's choice.

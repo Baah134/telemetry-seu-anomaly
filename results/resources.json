@@ -8,7 +8,7 @@
     "weight bytes, all channels": 191160,
     "peak activation bytes (est.)": 136,
     "MACs / inference": 3344,
-    "host latency [us] (measured, batch 1)": 972.1,
+    "host latency [us] (measured, batch 1)": 183.5,
     "ESP32 latency [ms] (ESTIMATE)": "0.032-0.088",
     "ESP32 energy [uJ] (ESTIMATE)": "3.16-19.68"
   },
@@ -21,7 +21,7 @@
     "weight bytes, all channels": 732888,
     "peak activation bytes (est.)": 544,
     "MACs / inference": 3344,
-    "host latency [us] (measured, batch 1)": 200.1,
+    "host latency [us] (measured, batch 1)": 36.3,
     "ESP32 latency [ms] (ESTIMATE)": "0.056-0.139",
     "ESP32 energy [uJ] (ESTIMATE)": "5.52-31.27"
   },
@@ -47,7 +47,7 @@
     "weight bytes, all channels": 121500,
     "peak activation bytes (est.)": 166,
     "MACs / inference": 4304,
-    "host latency [us] (measured, batch 1)": 1023.6,
+    "host latency [us] (measured, batch 1)": 189.1,
     "ESP32 latency [ms] (ESTIMATE)": "0.040-0.112",
     "ESP32 energy [uJ] (ESTIMATE)": "3.96-25.06"
   },
@@ -60,7 +60,7 @@
     "weight bytes, all channels": 470124,
     "peak activation bytes (est.)": 664,
     "MACs / inference": 4304,
-    "host latency [us] (measured, batch 1)": 204.4,
+    "host latency [us] (measured, batch 1)": 37.4,
     "ESP32 latency [ms] (ESTIMATE)": "0.072-0.179",
     "ESP32 energy [uJ] (ESTIMATE)": "7.10-40.24"
   },
@@ -76,5 +76,18 @@
     "host latency [us] (measured, batch 1)": null,
     "ESP32 latency [ms] (ESTIMATE)": "100.695-251.737",
     "ESP32 energy [uJ] (ESTIMATE)": "9968.77-56489.71"
+  },
+  {
+    "spacecraft": "SMAP (D-2)",
+    "model": "Tiny MLP INT8, MEASURED on ESP32 (2026-11-11)",
+    "params": 3393,
+    "weight bytes": 3540,
+    "channels": 1,
+    "weight bytes, all channels": 3540,
+    "peak activation bytes (est.)": 136,
+    "MACs / inference": 3344,
+    "host latency [us] (measured, batch 1)": null,
+    "ESP32 latency [ms] (ESTIMATE)": "MEASURED 0.203",
+    "ESP32 energy [uJ] (ESTIMATE)": "20.1-45.6 (measured latency x datasheet current)"
   }
 ]

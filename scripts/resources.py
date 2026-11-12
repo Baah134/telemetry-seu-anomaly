@@ -92,6 +92,19 @@ def main():
                          "ESP32 latency [ms] (ESTIMATE)": f"{lat[0] * 1e3:.3f}-{lat[1] * 1e3:.3f}",
                          "ESP32 energy [uJ] (ESTIMATE)":
                              f"{lat[0] * V * I_MA[0] * 1e3:.2f}-{lat[1] * V * I_MA[1] * 1e3:.2f}"})
+    hw = Path("results/hardware_measured.json")
+    if hw.exists():
+        h = json.loads(hw.read_text(encoding="utf-8"))
+        lat_us = h["run_8_windows_1000_reps"]["us_per_inference_median"]
+        e = h["energy_estimate_uJ"]["value_range"]
+        rows.append({"spacecraft": "SMAP (D-2)", "model": f"Tiny MLP INT8, MEASURED on ESP32 ({h['date']})",
+                     "params": rows[0]["params"], "weight bytes": rows[0]["weight bytes"], "channels": 1,
+                     "weight bytes, all channels": rows[0]["weight bytes"],
+                     "peak activation bytes (est.)": rows[0]["peak activation bytes (est.)"],
+                     "MACs / inference": rows[0]["MACs / inference"],
+                     "host latency [us] (measured, batch 1)": None,
+                     "ESP32 latency [ms] (ESTIMATE)": f"MEASURED {lat_us / 1000:.3f}",
+                     "ESP32 energy [uJ] (ESTIMATE)": f"{e[0]:.1f}-{e[1]:.1f} (measured latency x datasheet current)"})
     df = pd.DataFrame(rows)
     Path("results/tables").mkdir(parents=True, exist_ok=True)
     df.to_csv("results/tables/resources.csv", index=False)
@@ -99,7 +112,9 @@ def main():
             "4-10 cycles/MAC (assumed scalar C loops, no SIMD); +20 cycles per requantized output; "
             "30-68 mA at 3.3 V (ESP32 datasheet, modem-sleep, 240 MHz, radio off). Peak activation memory "
             "counts input + hidden buffers only. Host latency: this PC, NumPy integer reference vs PyTorch, "
-            "batch 1, median of 2000 (Python overhead dominates; reference only).\n")
+            "batch 1, median of 2000 (Python overhead dominates; reference only). The MEASURED row comes from "
+            "results/hardware_measured.json (Prince's ESP32-D0WD-V3 DevKit, 240 MHz, -Os): it is 2-6x slower than "
+            "the INT8 estimate (~14.6 cycles per MAC measured vs 2-6 assumed), so the estimated rows are optimistic.\n")
     Path("results/tables/resources.md").write_text(df.to_markdown(index=False) + note, encoding="utf-8")
     Path("results/resources.json").write_text(json.dumps(rows, indent=2), encoding="utf-8")
     print(df.to_markdown(index=False))

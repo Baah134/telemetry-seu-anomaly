@@ -90,7 +90,17 @@ def main():
     a("## 2. Resources\n")
     a(md("resources.md") + "\n")
     a(f"Host check of the ESP32 C code: bit-exact with the NumPy integer reference on "
-      f"{C['bit_exact']}/{C['windows']} windows (channel {C['chan']}, host gcc; not an ESP32 measurement).\n")
+      f"{C['bit_exact']}/{C['windows']} windows (channel {C['chan']}, host gcc).\n")
+    if (R / "hardware_measured.json").exists():
+        H = j("hardware_measured.json")
+        r8, r5 = H["run_8_windows_1000_reps"], H["run_500_windows_20_reps"]
+        ev = H["energy_estimate_uJ"]["value_range"]
+        a(f"**Measured on hardware ({H['date']}):** {H['board']}, {H['cpu_mhz']} MHz. INT8 outputs bit-exact with the "
+          f"NumPy reference on {r5['bit_exact']}/{r5['windows']} windows (and {r8['bit_exact']}/{r8['windows']} in "
+          f"the 1,000-repetition run). Latency {r8['us_per_inference_median']:.1f} µs per inference "
+          f"(~{H['cycles_per_mac_measured']:.1f} cycles per MAC), slower than the 32–88 µs estimate. Energy "
+          f"{ev[0]:.0f}–{ev[1]:.0f} µJ is still an ESTIMATE (measured latency x datasheet current; current not "
+          f"measured). Who/how: {H['who']}. Raw logs in results/hardware/.\n")
 
     a("## 3. Simulated SEU fault injection\n")
     a(f"Subset: {', '.join(F['subset'])} (5 SMAP + 5 MSL, drawn by seed before any fault result), training seed 0, "
@@ -147,7 +157,7 @@ def main():
 
     a("## 4. What this does NOT show\n")
     a("- Radiation behaviour: faults are simulated bit flips in software, uniform over stored bits.")
-    a("- ESP32 performance: latency/energy are estimates; the C code was only checked on a host compiler.")
+    a("- ESP32 energy: not measured (estimate only); latency was measured for one SMAP-channel model only.")
     a("- Generality: one benchmark with known flaws; the fault subset has 13 labeled events.")
     a("- Telemanom parity: the port follows telemanom/errors.py but was not run side by side with the original "
       "(docs/DECISIONS.md #19).")
