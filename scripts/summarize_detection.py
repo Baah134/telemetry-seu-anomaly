@@ -128,7 +128,9 @@ def figures(S):
         ax.set_xticks(x, [LABELS[m] for m in ms], rotation=45, ha="right")
         ax.set_title(g)
     axs[0].set_ylabel("event-wise F1 (mean ± sd over seeds)")
-    axs[0].legend(fontsize=6, loc="upper right")
+    h, l = axs[0].get_legend_handles_labels()
+    fig.legend([x[0] if hasattr(x, "__getitem__") else x for x in h], l, loc="lower center", ncol=3, fontsize=6,
+               frameon=False, bbox_to_anchor=(0.5, -0.3))
     save(fig, "figures/detection_f1")
 
     fig, ax = plt.subplots(figsize=(COL_W, 2.5))

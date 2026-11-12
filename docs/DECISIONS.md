@@ -82,3 +82,28 @@ Status: code for M0–M4 written and smoke-tested on a synthetic dataset; real d
     results/c_host_check.json). This is not an ESP32 measurement.
 24. **LSTM kept at full telemanom size (2 x 80)**, max 25 epochs, early stopping
     (patience 4) on the validation split; ~21 s per epoch per channel on this machine.
+25. **Forecast-damage experiment added** (results/faults/damage.json): same flips as the
+    sweep (identical RNG seeds), forecast MSE outside labeled anomalies relative to the
+    clean model. Added because INT8 event F1 rose with more flips; this checks whether F1
+    tracks model health (it does not).
+26. **Protection study rerun after two bugs were found in the first run (not reported):**
+    (a) every scrub@K variant recorded the K = 100 corrupted-inference count;
+    (b) after a NaN forecast the detector's EWMA stayed poisoned for the rest of the
+    stream even after scrubbing repaired the weights. Now scrubbing also resets the
+    detector state at the repair step (what an implementation would do); without
+    scrubbing the NaN still silences the detector permanently.
+27. **No-fault baselines per protection.** Clamp and the sanity check act on every
+    inference, not only faulty ones, so each protection's event F1 without faults is
+    reported (results/faults/clean.json, `*_no_fault_with`). Finding: the sanity check
+    lowers fault-free F1 (INT8 0.615 -> 0.560) because it also replaces real
+    out-of-range forecasts during anomalies; the float32 activation clamp RAISES
+    fault-free F1 (0.545 -> 0.640), to about the INT8 level.
+28. **Scrubbing modelled as verify-then-commit.** In the second protection run, float32
+    with CRC scrubbing (K = 100) was WORSE than no protection at 100 flips (F1 0.368 vs
+    0.428, 19% catastrophic): the <= 100 corrupted forecasts before the check are up to
+    ~1e30, so their error burst raised a false alarm and kept the smoothed error inflated
+    for thousands of steps, hiding real anomalies. That is a real failure mode of naive
+    scrubbing. The design used now: forecasts are released to the detector only after
+    the next checksum passes; on a mismatch, all forecasts since the last good check are
+    discarded and the weights reloaded. Cost: alarm latency of up to K inferences. Both
+    the naive result (this entry) and the verify-then-commit result are reported.

@@ -1,15 +1,15 @@
-model,protection,extra memory [bytes/model],extra work / inference (approx. ops or bytes read),"event F1, k=10","catastrophic, k=10","event F1, k=100","catastrophic, k=100"
-INT8 (integer model),no protection,0,0,0.615 ± nan,0%,0.593 ± nan,0%
-INT8 (integer model),activation range clamp,6,49,0.615 ± nan,0%,0.571 ± nan,0%
-INT8 (integer model),output sanity check,8,2,0.560 ± nan,0%,0.519 ± nan,0%
-INT8 (integer model),"TMR, output layer",32,48,0.615 ± nan,0%,0.593 ± nan,0%
-INT8 (integer model),"TMR, input layer",6592,9888,0.615 ± nan,0%,0.640 ± nan,0%
-INT8 (integer model),"CRC32 scrub, K=100",24,40,0.615 ± nan,0%,0.571 ± nan,0%
-INT8 (integer model),clamp + TMR(out) + scrub + sanity,70,139,0.560 ± nan,0%,0.538 ± nan,0%
-float32,no protection,0,0,0.522 ± nan,0%,0.444 ± nan,0%
-float32,activation range clamp,24,49,0.615 ± nan,0%,0.593 ± nan,0%
-float32,output sanity check,8,2,0.455 ± nan,0%,0.381 ± nan,0%
-float32,"TMR, output layer",128,48,0.522 ± nan,0%,0.333 ± nan,0%
-float32,"TMR, input layer",26368,9888,0.545 ± nan,0%,0.545 ± nan,0%
-float32,"CRC32 scrub, K=100",24,155,0.522 ± nan,0%,0.320 ± nan,0%
-float32,clamp + TMR(out) + scrub + sanity,184,254,0.545 ± nan,0%,0.462 ± nan,0%
+model,protection,"event F1, no faults",extra memory [bytes/model],extra work / inference (approx. ops or bytes read),"event F1, k=10","catastrophic, k=10","event F1, k=100","catastrophic, k=100"
+INT8 (integer model),no protection,0.615,0,0,0.617 ± 0.036,0%,0.625 ± 0.059,0%
+INT8 (integer model),activation range clamp,0.615,6,49,0.616 ± 0.037,0%,0.625 ± 0.061,0%
+INT8 (integer model),output sanity check,0.560,8,2,0.562 ± 0.038,0%,0.568 ± 0.060,0%
+INT8 (integer model),"TMR, output layer",0.615,32,48,0.616 ± 0.029,0%,0.620 ± 0.057,0%
+INT8 (integer model),"TMR, input layer",0.615,6592,9888,0.618 ± 0.018,0%,0.629 ± 0.046,0%
+INT8 (integer model),"CRC32 scrub, K=100",0.615,24,40,0.627 ± 0.046,0%,0.633 ± 0.050,0%
+INT8 (integer model),clamp + TMR(out) + scrub + sanity,0.560,70,139,0.573 ± 0.047,0%,0.579 ± 0.050,0%
+float32,no protection,0.545,0,0,0.512 ± 0.060,0%,0.428 ± 0.095,3%
+float32,activation range clamp,0.640,24,49,0.648 ± 0.045,0%,0.638 ± 0.069,0%
+float32,output sanity check,0.476,8,2,0.472 ± 0.037,0%,0.405 ± 0.076,2%
+float32,"TMR, output layer",0.545,128,48,0.520 ± 0.067,0%,0.424 ± 0.085,5%
+float32,"TMR, input layer",0.545,26368,9888,0.544 ± 0.010,0%,0.538 ± 0.048,0%
+float32,"CRC32 scrub, K=100",0.545,24,155,0.561 ± 0.056,0%,0.563 ± 0.049,0%
+float32,clamp + TMR(out) + scrub + sanity,0.583,184,254,0.488 ± 0.055,0%,0.490 ± 0.046,0%

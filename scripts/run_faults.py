@@ -124,8 +124,10 @@ class Ctx:
                     a = np.clip(a, *self.fclamp[l])
         return a[:, 0].astype(np.float64)
 
-    def counts(self, kind, pred):
-        """Telemanom detection on a forecast stream -> (all_counts, n_nonfinite)."""
+    def counts(self, kind, pred, reset_at=None):
+        """Telemanom detection on a forecast stream -> (all_counts, n_nonfinite).
+        A non-finite forecast poisons the EWMA (no alarms) until `reset_at` (the step where
+        scrubbing reloads the weights and the detector state is reset), or forever."""
         from src.detect.metrics import all_counts
         from src.detect.telemanom import detect
         pred = np.asarray(pred, np.float64)
@@ -133,13 +135,27 @@ class Ctx:
             e = np.abs(self.yt - pred) * self.sd
         bad = ~np.isfinite(e)
         nonfinite = int(bad.sum())
-        if nonfinite:
-            e = e.copy()
-            e[np.argmax(bad):] = 0.0       # EWMA becomes NaN; NaN > eps is false -> silent
-        seqs = detect(e, self.yt * self.sd + self.mu, l_s=self.W, chan_id=self.chan_id)
+        dead = None
         if nonfinite:
             first = int(np.argmax(bad))
-            seqs = [(a, min(b, first - 1)) for a, b in seqs if a < first]
+            end = len(e) if reset_at is None else max(first, min(len(e), reset_at))
+            e = e.copy()
+            e[first:end] = 0.0             # EWMA is NaN here; NaN > eps is false -> silent
+            e[~np.isfinite(e)] = 0.0
+            dead = (first, end)
+        seqs = detect(e, self.yt * self.sd + self.mu, l_s=self.W, chan_id=self.chan_id)
+        if dead is not None:
+            a0, b0 = dead
+            kept = []
+            for a, b in seqs:               # no alarm can be raised while the EWMA is NaN
+                if b < a0 or a >= b0:
+                    kept.append((a, b))
+                else:
+                    if a < a0:
+                        kept.append((a, a0 - 1))
+                    if b >= b0:
+                        kept.append((b0, b))
+            seqs = [(a, b) for a, b in kept if b > a]
         alarm = np.zeros(self.n, bool)
         for a, b in seqs:
             alarm[a + self.W:b + self.W + 1] = True
@@ -294,6 +310,19 @@ def trial_protect(args):
             p[t0:end] = corrupt_pred[t0:end]
             return p
 
+        def scrubbed(corrupt_pred, K):
+            """Verify-then-commit scrubbing: forecasts are released to the detector only
+            after the next checksum passes. On a mismatch at step r = (t0//K + 1)*K the
+            weights are reloaded and every forecast since the last good check
+            [(t0//K)*K, r) is discarded (never enters the detector), then the detector
+            continues. Cost: alarms are delayed by up to K inferences."""
+            r = min(N, (t0 // K + 1) * K)
+            p = clean.copy()
+            p[t0:r] = corrupt_pred[t0:r]
+            lo = (t0 // K) * K
+            p[lo:r] = cx.yt[lo:r]          # discarded: zero error, cannot alarm
+            return p
+
         f_none = cx.forward(kind, cx.Xt, plain_noTMR)
         f_clamp = cx.forward(kind, cx.Xt, plain_noTMR, clamp=True)
         f_tmr = {tl: cx.forward(kind, cx.Xt, voted_by[tl]) for tl in TMR_LAYERS}
@@ -305,18 +334,21 @@ def trial_protect(args):
             "tmr_L2": stream(f_tmr[2]),
             "tmr_L0": stream(f_tmr[0]),
             # scrub: detected at the next multiple of K after t0, then golden weights reloaded
-            "scrub": stream(f_none, until=(t0 // scrub_k + 1) * scrub_k),
+            "scrub": scrubbed(f_none, scrub_k),
             # combined = clamp + TMR(output layer) + scrub@100 + sanity
-            "combined": sanity_filter(stream(f_comb, until=(t0 // scrub_k + 1) * scrub_k), last, cx.lo, cx.hi)[0],
+            "combined": sanity_filter(scrubbed(f_comb, scrub_k), last, cx.lo, cx.hi)[0],
         }
         if kind == "int8" and k == 10:
             for K in SCRUB_K:
-                preds[f"scrub@{K}"] = stream(f_none, until=(t0 // K + 1) * K)
+                preds[f"scrub@{K}"] = scrubbed(f_none, K)
+        repair = {"scrub": (t0 // scrub_k + 1) * scrub_k, "combined": (t0 // scrub_k + 1) * scrub_k}
+        for K in SCRUB_K:
+            repair[f"scrub@{K}"] = (t0 // K + 1) * K
         for name, p in preds.items():
-            cnt, nonfinite = cx.counts(kind, p)
+            until = repair.get(name)
+            cnt, nonfinite = cx.counts(kind, p, reset_at=until)
             res.setdefault(name, []).append({"chan": c, "counts": cnt, "nonfinite": nonfinite,
-                              "corrupt_inferences": int(min(N, (t0 // scrub_k + 1) * scrub_k) - t0)
-                              if "scrub" in name or name == "combined" else int(N - t0)})
+                                             "corrupt_inferences": int(min(N, until) - t0) if until else int(N - t0)})
     return res
 
 
@@ -348,6 +380,18 @@ def main():
                 cnts = [ctx(c).counts(kind, ctx(c).clean[kind])[0] for c in chans]
                 rec[kind] = aggregate(cnts)
                 rec[f"{kind}_weight_bytes"] = [int(sum(w.nbytes for w in ctx(c).weights(kind))) for c in chans]
+                # protections that also act on fault-free inferences: their no-fault baseline
+                from src.faults.protect import sanity_filter
+                cl = {"clamp": [], "sanity": [], "combined": []}
+                for c in chans:
+                    cx = ctx(c)
+                    pc = cx.forward(kind, cx.Xt, cx.weights(kind), clamp=True)
+                    cl["clamp"].append(cx.counts(kind, pc)[0])
+                    ps = sanity_filter(cx.clean[kind], cx.Xt[:, cx.W - 1].astype(np.float64), cx.lo, cx.hi)[0]
+                    cl["sanity"].append(cx.counts(kind, ps)[0])
+                    pcs = sanity_filter(pc, cx.Xt[:, cx.W - 1].astype(np.float64), cx.lo, cx.hi)[0]
+                    cl["combined"].append(cx.counts(kind, pcs)[0])
+                rec[f"{kind}_no_fault_with"] = {k: aggregate(v) for k, v in cl.items()}
             (OUT / "clean.json").write_text(json.dumps(rec, indent=2), encoding="utf-8")
             print("clean", {k: rec[k]["event"]["f1"] for k in ("int8", "f32")}, flush=True)
         if "sweep" in a.only:

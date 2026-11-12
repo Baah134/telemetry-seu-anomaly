@@ -210,7 +210,11 @@ def main():
         rows = []
         for kind in ("int8", "f32"):
             for prot in PROT_LABEL:
+                nf = clean_rec.get(f"{kind}_no_fault_with", {}).get(prot)
+                nf_f1 = nf["event"]["f1"] if nf else clean[kind]["event_f1"]
+                out.setdefault("no_fault_f1", {})[f"{kind}|{prot}"] = nf_f1
                 row = {"model": KIND_LABEL[kind], "protection": PROT_LABEL[prot],
+                       "event F1, no faults": f"{nf_f1:.3f}",
                        "extra memory [bytes/model]": f"{ov[kind][prot][0]:.0f}",
                        "extra work / inference (approx. ops or bytes read)": f"{ov[kind][prot][1]:.0f}"}
                 for k in sorted({b for a, b, c in cond if a == kind}):
@@ -229,20 +233,21 @@ def main():
         print(df.to_markdown(index=False))
         fig, axs = plt.subplots(1, 2, figsize=(DBL_W, 2.6), sharey=True)
         kmax = max(b for a, b, c in cond)
+        marks = dict(zip(PROT_LABEL, "osDv^Xp"))
         for ax, kind in zip(axs, ("int8", "f32")):
-            for prot in PROT_LABEL:
+            for n, prot in enumerate(PROT_LABEL):
                 st = out["protect"].get(f"{kind}|{kmax}|{prot}")
                 if not st:
                     continue
                 x = max(ov[kind][prot][0], 1)
-                ax.scatter(x, st["event_f1_mean"], s=14, zorder=3)
-                ax.annotate(PROT_LABEL[prot], (x, st["event_f1_mean"]), fontsize=5, xytext=(3, 2),
-                            textcoords="offset points")
+                ax.errorbar(x, st["event_f1_mean"], yerr=st["event_f1_std"], fmt=marks[prot], ms=5, capsize=2,
+                            color=f"C{n}", label=PROT_LABEL[prot] if kind == "int8" else None, zorder=3)
             ax.axhline(clean[kind]["event_f1"], color="k", ls=":", lw=0.8)
             ax.set_xscale("log")
-            ax.set_xlabel("extra memory per model (bytes, log; 'none' plotted at 1)")
-            ax.set_title(f"{KIND_LABEL[kind]}, k = {kmax} flips")
-        axs[0].set_ylabel("event F1 under faults (dotted: clean)")
+            ax.set_xlabel("extra memory per model (bytes, log)")
+            ax.set_title(f"{KIND_LABEL[kind]}, {kmax} flips (dotted: clean, no faults)")
+        axs[0].set_ylabel("event F1 under faults (mean ± sd)")
+        fig.legend(loc="lower center", ncol=4, fontsize=6, frameon=False, bbox_to_anchor=(0.5, -0.22))
         save(fig, "figures/fault_protect")
         # scrub interval
         ks = sorted(int(c.split("@")[1]) for a, b, c in cond if c.startswith("scrub@"))

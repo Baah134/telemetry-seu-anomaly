@@ -1,7 +1,7 @@
 # EXPLAINER — study guide for Prince (Project 3)
 
-Read this before you write anything about the project. Sections 7–8 are filled in from
-the results files once the runs finish.
+Read this before you write anything about the project. Numbers come from RESULTS.md
+(generated from the results files); if they ever disagree, RESULTS.md wins.
 
 ## 1. SMAP, MSL and the telemetry
 
@@ -106,6 +106,65 @@ the model, produces much of the headline number.
 | Protection | How it works | Cost | When it fails |
 |---|---|---|---|
 | Range restriction | clamp each layer's output to the range seen on training data | 2 bounds per layer, 1 compare per activation | errors that stay inside the normal range are not caught |
-| Checksum + scrub | CRC32 per weight array, recomputed every K inferences; on mismatch reload from a golden copy | 4 bytes per array + reading all weight bytes every K inferences | wrong outputs until the next check (latency ≈ K/2 inferences on average); golden copy must itself be protected |
+| Checksum + scrub | CRC32 per weight array, recomputed every K inferences; on mismatch reload from a golden copy and discard every output since the last good check (outputs are released only after a passing check) | 4 bytes per array + reading all weight bytes every K inferences; alarms delayed by up to K inferences | naive version (use outputs immediately) let a float32 burst of ~1e30 errors blind the detector and was worse than no protection; large K discards real detections; golden copy must itself be protected |
 | Selective TMR | store one layer 3 times, use the bitwise majority | 2× that layer's bytes, vote per read | two copies hit in the same bit; the other layers stay unprotected |
-| Output sanity check | if a forecast is far outside the training range, use the last value instead | 2 bounds, 2 compares | corrupted forecasts that still look plausible |
+| Output sanity check | if a forecast is far outside the training range, use the last value instead | 2 bounds, 2 compares | corrupted forecasts that still look plausible; ALSO hides real out-of-range anomalies (costs ~0.05 F1 with no faults here) |
+
+## 7. What the results show and what they do NOT show
+
+**Shows (simulation, this benchmark):**
+1. *A ~4 KB INT8 forecaster matches a ~350 KB LSTM on SMAP+MSL* under telemanom's own
+   detection pipeline (event F1 0.689 ± 0.008 vs 0.699 ± 0.019; the difference is
+   inside the seed spread). On MSL alone the LSTM is ahead by 0.05, but with 3 seeds
+   that is not resolved. Quantization costs essentially nothing (0.689 vs 0.702).
+2. *The evaluation protocol decides the ranking.* With a fixed percentile threshold,
+   persistence ("tomorrow = today") beats the tiny model; with telemanom's windowed,
+   pruned threshold the tiny model wins. Random scores get the best point-adjusted F1
+   of all (0.93). This is the same lesson as your SER audit: change the protocol and
+   the published-looking number changes, sometimes more than the model does.
+3. *The benchmark is easy in a specific way.* With fixed thresholds (and many false
+   alarms), persistence and z-score already touch
+   68–85% of labeled anomalies; many are large, visible jumps (docs/DATA.md).
+4. *INT8 fails gracefully, float32 does not.* Any INT8 bit flip leaves values bounded,
+   so no forecast can become NaN or infinite. In float32, exponent-bit flips produce
+   values up to ~1e35 or NaN; 98% of trials with 100 flips contain NaN/inf forecasts,
+   and one NaN silences the detector (NaN comparisons are false). Under transient
+   upsets at 1 per 100 inferences, ~half of float32 trials are catastrophic, none of
+   the INT8 trials are.
+5. *Detection F1 is a bad health monitor for the model.* 100 flips leave 44% of INT8
+   models with more than 2x their normal forecast error, yet event F1 goes up. A broken
+   forecaster still flags big jumps. So "the detector still works" cannot be used as
+   evidence that the model is intact; checksums on the weights can.
+
+**Does NOT show:**
+- Anything about real radiation: flips are simulated, uniformly over stored bits; real
+  upset rates, multi-bit upsets, and upsets in code, control logic or the MCU's
+  registers are not modelled.
+- ESP32 behaviour: latency/energy are estimates; the C code was only checked on a PC.
+- That tiny models are as good in general: one benchmark, one window length, 3 seeds.
+- That the telemanom port is line-for-line identical (no side-by-side run, see
+  DECISIONS #19).
+
+## 8. Likely reviewer questions (honest answers)
+
+1. *"Isn't PA-F1 the standard metric?"* It is common, and it is broken for this data:
+   random scores score 0.93. We headline event-wise F1 and show PA only for contrast.
+2. *"Your thresholds look at test errors."* The telemanom pipeline uses test *errors*
+   (never labels), exactly like the original method and like an onboard system would
+   (it only looks back). The fixed thresholds use validation data only; both reported.
+3. *"Why does INT8 F1 rise with more bit flips?"* Because on this benchmark a damaged
+   forecaster still flags large deviations; the forecast error itself gets much worse
+   (damage table). It is a property of the benchmark/metric, not a robustness win.
+4. *"Why only 10 channels in the fault study?"* Compute: each trial runs telemanom
+   detection per channel. They were drawn at random by seed (5 SMAP + 5 MSL) before any
+   fault result. Their 13 labeled events make F1 coarse (steps of ~0.08).
+5. *"Why is the INT8 clean F1 higher than float32 on the subset?"* INT8 activations
+   saturate at their calibrated range. Clamping float32 activations to the same ranges
+   raises its fault-free F1 from 0.545 to 0.640, so bounded outputs help on this data.
+6. *"Is the LSTM under-trained?"* It is telemanom-sized (2x80) with early stopping on the
+   validation split; our window is 64 not 250. It ties the tiny model overall.
+7. *"Would ECC memory make this moot?"* Largely for single-bit upsets in protected RAM;
+   many small-satellite MCUs lack ECC on all memories, and multi-bit upsets exist. The
+   software protections studied here are what you can add without new hardware.
+8. *"Did you test on hardware?"* No. The ESP32 sketch and instructions are in export/;
+   any hardware number will be labeled as measured by Prince, with board and method.
